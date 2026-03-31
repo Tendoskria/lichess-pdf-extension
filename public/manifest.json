@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Lichess PDF Export",
+  "version": "1.0",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["https://lichess.org/*"],
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://lichess.org/study/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
