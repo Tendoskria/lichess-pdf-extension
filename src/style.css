@@ -1,0 +1,22 @@
+.lichess-pdf-export {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.lichess-pdf-export:hover {
+  background-color: #4a76a8;
+  color: white;
+}
+
+#play-pdf-btn, #stop-pdf-btn {
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 3px;
+  transition: background-color 0.1s;
+}
+
+#play-pdf-btn:hover, #stop-pdf-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
