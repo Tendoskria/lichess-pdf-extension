@@ -1,8 +1,8 @@
 import html2canvas from "html2canvas"
+import { extractComment } from "./comment-extractor"
 
 export async function extractPage() {
   const board = document.querySelector('.analyse__board.main-board') as HTMLElement
-  const commentEl = document.querySelector('.comment')
   
   if (!board) throw new Error("Board not found")
   
@@ -17,25 +17,23 @@ export async function extractPage() {
   
   const img = canvas.toDataURL("image/png")
   
-  // Get the comment, handling different formats (text or HTML)
-  let comment = ""
-  if (commentEl) {
-    const commentText = commentEl.textContent?.trim() || ""
-    const commentHtml = (commentEl as HTMLElement).innerHTML
-    comment = commentText || commentHtml.replace(/<[^>]*>/g, '').trim()
-  }
+  // Utiliser le nouvel extracteur de commentaires
+  let comment = extractComment()
   
+  // Ajouter le titre du chapitre
   const chapterTitle = document.querySelector('.study_chapter .name')?.textContent?.trim() || ""
-  const moveNumber = document.querySelector('.move')?.textContent?.trim() || ""
-  
-  const fullComment = [
-    chapterTitle && `📖 ${chapterTitle}`,
-    moveNumber && `🔢 ${moveNumber}`,
-    comment && `💬 ${comment}`
-  ].filter(Boolean).join('\n')
-  
-  return { 
-    img, 
-    comment: fullComment || "Page sans commentaire" 
+  if (chapterTitle) {
+    comment = `📖 ${chapterTitle}\n\n${comment}`
   }
+  
+  // Ajouter le numéro du coup
+  const moveNumber = document.querySelector('.move')?.textContent?.trim() || ""
+  if (moveNumber && moveNumber !== "?" && moveNumber !== "-" && moveNumber !== "") {
+    comment = `🔢 ${moveNumber}\n${comment}`
+  }
+  
+  console.log("✅ Page extraite avec succès")
+  console.log("📝 Commentaire final:", comment.substring(0, 100) + "...")
+  
+  return { img, comment }
 }
