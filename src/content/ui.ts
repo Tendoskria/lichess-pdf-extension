@@ -23,7 +23,6 @@ function createButton(container: Element) {
   // Create a wrapper for the button to manage state and controls
   const btnWrapper = document.createElement("div")
   btnWrapper.className = "fbt"
-  btnWrapper.style.position = "relative"
   btnWrapper.style.display = "inline-block"
   
   const btn = document.createElement("button")
@@ -75,15 +74,28 @@ function startRecording(btn: HTMLButtonElement, wrapper: HTMLElement) {
   if (playBtn) {
     playBtn.onclick = async (e) => {
       e.stopPropagation()
-      const data = await extractPage()
-      session.pages.push(data)
-      console.log(`Page ajoutée (${session.pages.length} pages)`, session)
-      
-      const originalBg = playBtn.style.background
-      playBtn.style.background = "#4caf50"
-      setTimeout(() => {
-        playBtn.style.background = originalBg
-      }, 200)
+      try {
+        const data = await extractPage()
+        session.pages.push(data)
+        
+        // Update the page count in the UI
+        const counterSpan = wrapper.querySelector("span")
+        if (counterSpan) {
+          counterSpan.innerText = `${session.pages.length} page(s)`
+        }
+        
+        console.log(`Page ajoutée (${session.pages.length} pages)`, session)
+        
+        // Visual feedback on button click
+        const originalBg = playBtn.style.background
+        playBtn.style.background = "#4caf50"
+        setTimeout(() => {
+          playBtn.style.background = originalBg
+        }, 200)
+      } catch (error) {
+        console.error("Erreur lors de la capture:", error)
+        alert("Erreur lors de la capture de la page")
+      }
     }
   }
   
@@ -96,39 +108,64 @@ function startRecording(btn: HTMLButtonElement, wrapper: HTMLElement) {
         return
       }
       
-      chrome.runtime.sendMessage({
-        action: "EXPORT_PDF",
-        payload: session
-      })
-      
-      state = "idle"
-      session = { pages: [] }
-      
-      // Restore the original button
-      wrapper.innerHTML = ""
-      const newBtn = document.createElement("button")
-      newBtn.innerText = originalText
-      newBtn.style.background = "none"
-      newBtn.style.border = "none"
-      newBtn.style.color = "inherit"
-      newBtn.style.font = "inherit"
-      newBtn.style.cursor = "pointer"
-      newBtn.style.padding = "0.5rem 1rem"
-      newBtn.style.borderRadius = "4px"
-      
-      newBtn.onmouseenter = () => {
-        newBtn.style.background = "rgba(0,0,0,0.1)"
+      // Create a deep copy of the session to ensure immutability
+      const sessionCopy = {
+        pages: [...session.pages]
       }
-      newBtn.onmouseleave = () => {
-        newBtn.style.background = "none"
-      }
-      newBtn.onclick = async () => {
-        if (state === "idle") {
-          startRecording(newBtn, wrapper)
+      
+      console.log("Envoi du message au background...", sessionCopy)
+      
+      // Send the session data to the background script for PDF generation
+      chrome.runtime.sendMessage(
+        {
+          action: "EXPORT_PDF",
+          payload: sessionCopy
+        },
+        (response) => {
+          console.log("Réponse du background:", response)
+          if (chrome.runtime.lastError) {
+            console.error("Erreur d'envoi:", chrome.runtime.lastError)
+            alert("Erreur: " + chrome.runtime.lastError.message)
+          } else if (response && response.success) {
+            alert(`PDF généré avec ${sessionCopy.pages.length} pages !`)
+          }
         }
-      }
+      )
       
-      wrapper.appendChild(newBtn)
+      // Do not reset the session immediately to allow the background script to process it
+      setTimeout(() => {
+        state = "idle"
+        session = { pages: [] }
+        restoreButton(wrapper, originalText)
+      }, 500)
     }
   }
+}
+
+function restoreButton(wrapper: HTMLElement, originalText: string) {
+  wrapper.innerHTML = ""
+  const newBtn = document.createElement("button")
+  newBtn.innerText = originalText
+  newBtn.style.background = "none"
+  newBtn.style.border = "none"
+  newBtn.style.color = "inherit"
+  newBtn.style.font = "inherit"
+  newBtn.style.cursor = "pointer"
+  newBtn.style.padding = "0.5rem 1rem"
+  newBtn.style.borderRadius = "4px"
+  
+  newBtn.onmouseenter = () => {
+    newBtn.style.background = "rgba(0,0,0,0.1)"
+  }
+  newBtn.onmouseleave = () => {
+    newBtn.style.background = "none"
+  }
+  
+  newBtn.onclick = async () => {
+    if (state === "idle") {
+      startRecording(newBtn, wrapper)
+    }
+  }
+  
+  wrapper.appendChild(newBtn)
 }

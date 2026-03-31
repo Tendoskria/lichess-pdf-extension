@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Lichess PDF Export",
   "version": "1.0",
-  "permissions": ["storage", "activeTab", "scripting"],
+  "permissions": ["storage", "activeTab", "scripting", "downloads"],
   "host_permissions": ["https://lichess.org/*"],
   "background": {
     "service_worker": "background.js",
