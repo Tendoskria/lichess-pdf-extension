@@ -31,7 +31,6 @@ export async function extractPage() {
     comment = `🔢 ${moveNumber}\n${comment}`
   }
   
-  console.log("✅ Page extraite avec succès")
   console.log("📝 Commentaire final:", comment.substring(0, 100) + "...")
   
   return { img, comment }

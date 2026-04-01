@@ -20,7 +20,7 @@ const BOARD_H = BOARD_W
 const FONT_SIZE = 8.5
 const LINE_H = 4.0   // mm per line
 const TEXT_PADDING = 1          // mm, ensures text stays inside column
-const TEXT_W = COL_W - 1
+const TEXT_W = COL_W - TEXT_PADDING * 2  // wrap width accounts for left+right padding
 const AFTER_BOARD = 4     // gap board → text (increased padding)
 const AFTER_BLOCK = 6     // gap text → next block
 
@@ -43,6 +43,9 @@ function sanitise(text: string): string {
 function wrapComment(doc: jsPDF, comment: string): string[] {
   const safe = sanitise(comment)
   if (!safe) return []
+  // Font must be set before splitTextToSize so jsPDF measures with correct metrics
+  doc.setFontSize(FONT_SIZE)
+  doc.setFont("helvetica", "normal")
   return doc.splitTextToSize(safe, TEXT_W) as string[]
 }
 
@@ -93,7 +96,7 @@ function drawBlock(
     doc.setFont("helvetica", "normal")
     doc.setTextColor(15, 15, 15)
     for (const line of lines) {
-      doc.text(line, x + TEXT_PADDING, curY, { maxWidth: TEXT_W })
+      doc.text(line, x + TEXT_PADDING, curY)
       curY += LINE_H
     }
 
