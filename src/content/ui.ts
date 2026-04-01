@@ -6,7 +6,6 @@ let state: State = "idle"
 let session = { pages: [] as any[] }
 
 export function initUI() {
-  // Wait for the element to be available in the DOM
   const waitForElement = () => {
     const container = document.querySelector('.gamebook-buttons')
     if (container) {
@@ -15,157 +14,117 @@ export function initUI() {
       setTimeout(waitForElement, 500)
     }
   }
-  
   waitForElement()
 }
 
+const SVG_ADD = `<svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor">
+  <rect x="4.25" y="0" width="1.5" height="10" rx=".75"/>
+  <rect x="0" y="4.25" width="10" height="1.5" rx=".75"/>
+</svg>`
+
+const SVG_STOP = `<svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor">
+  <rect x="1" y="1" width="8" height="8" rx="1"/>
+</svg>`
+
 function createButton(container: Element) {
-  // Create a wrapper for the button to manage state and controls
-  const btnWrapper = document.createElement("div")
-  btnWrapper.className = "fbt"
-  btnWrapper.style.display = "inline-block"
-  
+  const wrapper = document.createElement("div")
+  wrapper.className = "lichess-pdf-btn-wrapper fbt"
+
   const btn = document.createElement("button")
-  btn.innerText = "Créer un PDF"
-  btn.style.background = "none"
-  btn.style.border = "none"
-  btn.style.color = "inherit"
-  btn.style.font = "inherit"
-  btn.style.cursor = "pointer"
-  btn.style.padding = "0.5rem 1rem"
-  btn.style.borderRadius = "4px"
-  btn.style.transition = "background 0.2s"
-  
-  btn.onmouseenter = () => {
-    btn.style.background = "rgba(0,0,0,0.1)"
+  btn.className = "lichess-pdf-btn"
+  btn.innerHTML = `<span class="lichess-pdf-icon" data-icon="&#xe01c;"></span>Export PDF`
+
+  btn.onclick = () => {
+    if (state === "idle") startRecording(wrapper)
   }
-  btn.onmouseleave = () => {
-    btn.style.background = "none"
-  }
-  
-  btn.onclick = async () => {
-    if (state === "idle") {
-      startRecording(btn, btnWrapper)
-    }
-  }
-  
-  btnWrapper.appendChild(btn)
-  container.appendChild(btnWrapper)
+
+  wrapper.appendChild(btn)
+  container.appendChild(wrapper)
 }
 
-function startRecording(btn: HTMLButtonElement, wrapper: HTMLElement) {
+function startRecording(wrapper: HTMLElement) {
   state = "recording"
-  
-  // Save the original button text to restore it later
-  const originalText = btn.innerText
-  
-  // Replace the button with recording controls
+  session = { pages: [] }
+
   wrapper.innerHTML = `
-    <div style="display: flex; gap: 8px; align-items: center; padding: 0.5rem 1rem;">
-      <span style="font-size: 14px;">Création PDF</span>
-      <button id="play" style="background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px;" title="Ajouter la page">▶️</button>
-      <button id="stop" style="background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px;" title="Générer le PDF">⏹️</button>
+    <div class="pdf-controls">
+      <span class="pdf-controls__label">PDF</span>
+      <span class="pdf-controls__count" id="pdf-count">0</span>
+      <button class="pdf-controls__btn pdf-controls__btn--add" id="pdf-add" title="Capturer cette position">
+        ${SVG_ADD} Ajouter
+      </button>
+      <button class="pdf-controls__btn pdf-controls__btn--generate" id="pdf-stop" title="Générer le PDF">
+        ${SVG_STOP} Générer
+      </button>
     </div>
   `
-  
-  const playBtn = wrapper.querySelector("#play") as HTMLButtonElement
-  const stopBtn = wrapper.querySelector("#stop") as HTMLButtonElement
-  
-  if (playBtn) {
-    playBtn.onclick = async (e) => {
-      e.stopPropagation()
-      try {
-        const data = await extractPage()
-        session.pages.push(data)
-        
-        // Update the page count in the UI
-        const counterSpan = wrapper.querySelector("span")
-        if (counterSpan) {
-          counterSpan.innerText = `${session.pages.length} page(s)`
-        }
-        
-        console.log(`Page ajoutée (${session.pages.length} pages)`, session)
-        
-        // Visual feedback on button click
-        const originalBg = playBtn.style.background
-        playBtn.style.background = "#4caf50"
-        setTimeout(() => {
-          playBtn.style.background = originalBg
-        }, 200)
-      } catch (error) {
-        console.error("Erreur lors de la capture:", error)
-        alert("Erreur lors de la capture de la page")
-      }
+
+  const addBtn  = wrapper.querySelector("#pdf-add")  as HTMLButtonElement
+  const stopBtn = wrapper.querySelector("#pdf-stop") as HTMLButtonElement
+  const counter = wrapper.querySelector("#pdf-count") as HTMLSpanElement
+
+  addBtn.onclick = async (e) => {
+    e.stopPropagation()
+    if (addBtn.disabled) return
+
+    // Disable the button immediately to prevent multiple clicks while processing
+    addBtn.disabled = true
+    addBtn.classList.add("loading")
+
+    try {
+      const data = await extractPage()
+      session.pages.push(data)
+      counter.textContent = String(session.pages.length)
+
+      addBtn.classList.remove("loading")
+      addBtn.disabled = false
+
+      console.log(`Page ajoutée (${session.pages.length} pages)`)
+    } catch (err) {
+      console.error("Erreur capture:", err)
+      addBtn.classList.remove("loading")
+      addBtn.disabled = false
+      alert("Erreur lors de la capture de la position.")
     }
   }
-  
-  if (stopBtn) {
-    stopBtn.onclick = (e) => {
-      e.stopPropagation()
-      
-      if (session.pages.length === 0) {
-        alert("Aucune page enregistrée. Utilisez ▶️ pour ajouter des pages.")
-        return
-      }
-      
-      // Create a deep copy of the session to ensure immutability
-      const sessionCopy = {
-        pages: [...session.pages]
-      }
-      
-      console.log("Envoi du message au background...", sessionCopy)
-      
-      // Send the session data to the background script for PDF generation
-      chrome.runtime.sendMessage(
-        {
-          action: "EXPORT_PDF",
-          payload: sessionCopy
-        },
-        (response) => {
-          console.log("Réponse du background:", response)
-          if (chrome.runtime.lastError) {
-            console.error("Erreur d'envoi:", chrome.runtime.lastError)
-            alert("Erreur: " + chrome.runtime.lastError.message)
-          } else if (response && response.success) {
-            alert(`PDF généré avec ${sessionCopy.pages.length} pages !`)
-          }
-        }
-      )
-      
-      // Do not reset the session immediately to allow the background script to process it
-      setTimeout(() => {
-        state = "idle"
-        session = { pages: [] }
-        restoreButton(wrapper, originalText)
-      }, 500)
+
+  stopBtn.onclick = (e) => {
+    e.stopPropagation()
+
+    if (session.pages.length === 0) {
+      alert("Aucune page enregistrée. Utilisez « Ajouter » pour capturer des positions.")
+      return
     }
+
+    const sessionCopy = { pages: [...session.pages] }
+
+    chrome.runtime.sendMessage(
+      { action: "EXPORT_PDF", payload: sessionCopy },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          console.error("Erreur envoi:", chrome.runtime.lastError)
+          alert("Erreur : " + chrome.runtime.lastError.message)
+        } else if (response?.success) {
+          alert(`PDF généré — ${sessionCopy.pages.length} page(s).`)
+        }
+      }
+    )
+
+    setTimeout(() => {
+      state = "idle"
+      session = { pages: [] }
+      restoreButton(wrapper)
+    }, 500)
   }
 }
 
-function restoreButton(wrapper: HTMLElement, originalText: string) {
+function restoreButton(wrapper: HTMLElement) {
   wrapper.innerHTML = ""
-  const newBtn = document.createElement("button")
-  newBtn.innerText = originalText
-  newBtn.style.background = "none"
-  newBtn.style.border = "none"
-  newBtn.style.color = "inherit"
-  newBtn.style.font = "inherit"
-  newBtn.style.cursor = "pointer"
-  newBtn.style.padding = "0.5rem 1rem"
-  newBtn.style.borderRadius = "4px"
-  
-  newBtn.onmouseenter = () => {
-    newBtn.style.background = "rgba(0,0,0,0.1)"
+  const btn = document.createElement("button")
+  btn.className = "lichess-pdf-btn"
+  btn.innerHTML = `<span class="lichess-pdf-icon" data-icon="&#xe01c;"></span>Export PDF`
+  btn.onclick = () => {
+    if (state === "idle") startRecording(wrapper)
   }
-  newBtn.onmouseleave = () => {
-    newBtn.style.background = "none"
-  }
-  
-  newBtn.onclick = async () => {
-    if (state === "idle") {
-      startRecording(newBtn, wrapper)
-    }
-  }
-  
-  wrapper.appendChild(newBtn)
+  wrapper.appendChild(btn)
 }

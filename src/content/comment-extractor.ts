@@ -1,12 +1,7 @@
 export function extractComment(): string {
   // Chercher le commentaire par différents sélecteurs
   const selectors = [
-    '.comment',
-    '.study__comments',
-    '.analyse__comment',
-    '[data-role="comment"]',
-    '.comment-text',
-    '.chapter-comment'
+    '.comment'
   ]
   
   let commentElement: Element | null = null

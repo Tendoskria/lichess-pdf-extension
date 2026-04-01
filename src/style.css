@@ -1,22 +1,108 @@
-.lichess-pdf-export {
+/* Export PDF — même style que les boutons gamebook (RETOUR / REGARDER LA SOLUTION) */
+
+.lichess-pdf-btn-wrapper {
+  display: inline-block;
+  font-family: inherit;
+}
+
+/* Utilise la police d'icônes native lichess (déjà chargée sur la page) */
+.lichess-pdf-icon {
+  font-family: 'lichess', sans-serif;
+  font-style: normal;
+  font-size: 16px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.lichess-pdf-icon::before {
+  content: attr(data-icon);
+}
+
+.lichess-pdf-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  transition: all 0.2s ease;
-}
+  gap: 6px;
 
-.lichess-pdf-export:hover {
-  background-color: #4a76a8;
-  color: white;
-}
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #ffffff;
 
-#play-pdf-btn, #stop-pdf-btn {
+  background: transparent;
+  border: none;
+  padding: 0 8px;
+  height: 36px;
   cursor: pointer;
-  padding: 0 4px;
-  border-radius: 3px;
-  transition: background-color 0.1s;
+  opacity: 0.85;
+
+  transition: opacity 0.15s;
+  user-select: none;
 }
 
-#play-pdf-btn:hover, #stop-pdf-btn:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+.lichess-pdf-btn:hover {
+  opacity: 1;
+}
+
+/* ─── Contrôles d'enregistrement ─── */
+
+.pdf-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  height: 36px;
+}
+
+.pdf-controls__count {
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffffff;
+  padding: 0 6px;
+  opacity: 0.6;
+}
+
+.pdf-controls__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  padding: 0 8px;
+  height: 36px;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.pdf-controls__btn:hover {
+  opacity: 1;
+}
+
+.pdf-controls__btn--generate {
+  color: #ff6b6b;
+}
+
+.pdf-controls__btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.pdf-controls__btn--add.loading {
+  opacity: 0.4;
+  cursor: wait;
+}
+
+.pdf-controls__btn:disabled {
+  cursor: wait;
 }

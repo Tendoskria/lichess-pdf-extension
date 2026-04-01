@@ -17,16 +17,15 @@ export async function extractPage() {
   
   const img = canvas.toDataURL("image/png")
   
-  // Utiliser le nouvel extracteur de commentaires
   let comment = extractComment()
   
-  // Ajouter le titre du chapitre
+  // Add chapter title if available
   const chapterTitle = document.querySelector('.study_chapter .name')?.textContent?.trim() || ""
   if (chapterTitle) {
     comment = `📖 ${chapterTitle}\n\n${comment}`
   }
   
-  // Ajouter le numéro du coup
+  // Add move number if available
   const moveNumber = document.querySelector('.move')?.textContent?.trim() || ""
   if (moveNumber && moveNumber !== "?" && moveNumber !== "-" && moveNumber !== "") {
     comment = `🔢 ${moveNumber}\n${comment}`
