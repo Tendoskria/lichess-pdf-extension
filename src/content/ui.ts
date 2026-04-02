@@ -1,5 +1,6 @@
 import { extractPage } from "./extractor"
-import { extractComment } from "./comment-extractor"
+import { extractComment, } from "./comment-extractor"
+import { extractBoardFingerprint } from "./extractor"
 
 type State = "idle" | "recording"
 
@@ -8,9 +9,9 @@ let session = { pages: [] as any[] }
 
 export function initUI() {
   const waitForElement = () => {
-    const gamebook = document.querySelector('.gamebook')
-    if (gamebook) {
-      injectExportBar(gamebook)
+    const analyseUnderboard = document.querySelector('.analyse__underboard')
+    if (analyseUnderboard) {
+      injectExportBar(analyseUnderboard)
     } else {
       setTimeout(waitForElement, 500)
     }
@@ -19,8 +20,8 @@ export function initUI() {
 }
 
 const EXPORT_ICON = "\uE01C"
-const ADD_ICON    = "\uE04A"
-const ADDED_ICON  = "\uE00D"
+const ADD_ICON = "\uE04A"
+const ADDED_ICON = "\uE00D"
 
 function makeIcon(glyph: string): HTMLElement {
   const i = document.createElement('i')
@@ -40,24 +41,44 @@ function makeTile(icon: string, label: string, extraClass = ''): HTMLButtonEleme
   return btn
 }
 
-function injectExportBar(gamebook: Element) {
-  if (gamebook.querySelector('.pdf-export-bar')) return
+function injectExportBar(element: Element) {
+  if (element.querySelector('.pdf-export-bar')) return
 
   const bar = document.createElement('div')
   bar.className = 'pdf-export-bar'
 
   const btn = makeTile(EXPORT_ICON, 'Export PDF')
   btn.classList.add('pdf-export-btn')
-  btn.onclick = () => { if (state === "idle") startRecording(bar, gamebook) }
+  btn.onclick = () => { if (state === "idle") startRecording(bar, element) }
 
   bar.appendChild(btn)
-  gamebook.appendChild(bar)
+  element.insertBefore(bar, element.firstChild)
 }
 
-/** Returns true if the given comment is already present in session.pages */
-function isCommentAlreadyAdded(comment: string): boolean {
-  if (!comment) return false
-  return session.pages.some(p => p.comment === comment)
+/**
+ * Returns true if the current board position has already been captured.
+ * A position is considered a duplicate only when BOTH the comment AND the
+ * board fingerprint match a previously saved page.
+ *
+ * Special cases:
+ *  - If the comment is non-empty but the fingerprint is empty (board not
+ *    found), fall back to comment-only matching to stay safe.
+ *  - If both are empty, never report as already-added (avoids false positives
+ *    on blank positions).
+ */
+function isCurrentPositionAlreadyAdded(comment: string, fingerprint: string): boolean {
+  if (!comment && !fingerprint) return false
+
+  return session.pages.some(p => {
+    const commentMatch = p.comment === comment
+    const fingerprintMatch = p.boardFingerprint === fingerprint
+
+    // Both fields populated → require both to match
+    if (fingerprint && p.boardFingerprint) return commentMatch && fingerprintMatch
+
+    // Fingerprint unavailable on one side → fall back to comment only
+    return commentMatch
+  })
 }
 
 /** Switches addBtn to the "Ajouté" (already-added) visual state */
@@ -99,7 +120,8 @@ function startRecording(bar: HTMLElement, gamebook: Element) {
   bar.appendChild(addBtn)
   bar.appendChild(genBtn)
 
-  // Poll the current comment to keep the button state in sync with navigation
+  // Poll the current position (comment + board) to keep the button state in
+  // sync with the user navigating through moves.
   let pollInterval: ReturnType<typeof setInterval> | null = setInterval(() => {
     if (state !== "recording") {
       if (pollInterval) { clearInterval(pollInterval); pollInterval = null }
@@ -109,7 +131,9 @@ function startRecording(bar: HTMLElement, gamebook: Element) {
     if (addBtn.disabled && !addBtn.classList.contains('pdf-add-btn--added')) return
 
     const currentComment = extractComment()
-    if (isCommentAlreadyAdded(currentComment)) {
+    const currentFingerprint = extractBoardFingerprint()
+
+    if (isCurrentPositionAlreadyAdded(currentComment, currentFingerprint)) {
       setAddedState(addBtn)
     } else {
       setNormalState(addBtn)
