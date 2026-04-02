@@ -1,108 +1,80 @@
-/* Export PDF — même style que les boutons gamebook (RETOUR / REGARDER LA SOLUTION) */
+/* ─── Export PDF bar — mirrors .gamebook .feedback.end exactly ─── */
 
-.lichess-pdf-btn-wrapper {
-  display: inline-block;
+.pdf-export-bar {
+  display: flex;
+  flex-flow: row;
+  align-items: stretch;
+  height: 8rem;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+/* Tiles */
+.pdf-tile {
+  display: flex;
+  flex-flow: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+
+  background: var(--c-secondary);
+  border: none;
+  border-right: 1px solid rgba(0,0,0,0.25);
+  cursor: pointer;
+  padding: 0 1em;
+
   font-family: inherit;
+  font-size: 1em;
+  color: #fff;
+  text-align: center;
+  line-height: 1.3;
+
+  transition: filter 0.15s;
 }
 
-/* Utilise la police d'icônes native lichess (déjà chargée sur la page) */
-.lichess-pdf-icon {
-  font-family: 'lichess', sans-serif;
+.pdf-tile:last-child {
+  border-right: none;
+}
+
+.pdf-tile:hover {
+  filter: brightness(1.1);
+}
+
+/* Icon element — explicitly sized, not relying on ::before */
+.pdf-tile-icon {
+  font-family: 'lichess' !important;
   font-style: normal;
-  font-size: 16px;
-  margin-right: 4px;
-  vertical-align: middle;
+  font-size: 1.5em;
+  line-height: 1;
+  display: block;
 }
 
-.lichess-pdf-icon::before {
+.pdf-tile-icon::before {
   content: attr(data-icon);
 }
 
-.lichess-pdf-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: bold;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  color: #ffffff;
-
-  background: transparent;
-  border: none;
-  padding: 0 8px;
-  height: 36px;
-  cursor: pointer;
-  opacity: 0.85;
-
-  transition: opacity 0.15s;
-  user-select: none;
+/* Generate tile */
+.pdf-gen-btn {
+  background: var(--c-accent);
+  border-right: none;
 }
 
-.lichess-pdf-btn:hover {
-  opacity: 1;
-}
-
-/* ─── Contrôles d'enregistrement ─── */
-
-.pdf-controls {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-  height: 36px;
-}
-
+/* Counter badge */
 .pdf-controls__count {
-  font-size: 14px;
-  font-weight: bold;
-  color: #ffffff;
-  padding: 0 6px;
-  opacity: 0.6;
-}
-
-.pdf-controls__btn {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 5px;
-  background: transparent;
-  border: none;
-  padding: 0 8px;
-  height: 36px;
-  color: #ffffff;
-  font-family: inherit;
-  font-size: 14px;
+  justify-content: center;
+  padding: 0 .6em;
+  font-size: .9em;
   font-weight: bold;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  cursor: pointer;
-  opacity: 0.85;
-  transition: opacity 0.15s;
-  white-space: nowrap;
+  color: rgba(255,255,255,.7);
+  background: rgba(0,0,0,.2);
+  border-right: 1px solid rgba(0,0,0,0.25);
+  min-width: 2em;
 }
 
-.pdf-controls__btn:hover {
-  opacity: 1;
-}
-
-.pdf-controls__btn--generate {
-  color: #ff6b6b;
-}
-
-.pdf-controls__btn svg {
-  width: 14px;
-  height: 14px;
-  fill: currentColor;
-  flex-shrink: 0;
-}
-
-.pdf-controls__btn--add.loading {
+.pdf-add-btn:disabled {
   opacity: 0.4;
-  cursor: wait;
-}
-
-.pdf-controls__btn:disabled {
   cursor: wait;
 }
