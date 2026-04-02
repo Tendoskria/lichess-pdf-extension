@@ -1,4 +1,5 @@
 import { extractPage } from "./extractor"
+import { extractComment } from "./comment-extractor"
 
 type State = "idle" | "recording"
 
@@ -19,6 +20,7 @@ export function initUI() {
 
 const EXPORT_ICON = "\uE01C"
 const ADD_ICON    = "\uE04A"
+const ADDED_ICON  = "\uE00D"
 
 function makeIcon(glyph: string): HTMLElement {
   const i = document.createElement('i')
@@ -52,6 +54,32 @@ function injectExportBar(gamebook: Element) {
   gamebook.appendChild(bar)
 }
 
+/** Returns true if the given comment is already present in session.pages */
+function isCommentAlreadyAdded(comment: string): boolean {
+  if (!comment) return false
+  return session.pages.some(p => p.comment === comment)
+}
+
+/** Switches addBtn to the "Ajouté" (already-added) visual state */
+function setAddedState(addBtn: HTMLButtonElement) {
+  addBtn.classList.add('pdf-add-btn--added')
+  const icon = addBtn.querySelector('.pdf-tile-icon')!
+  icon.setAttribute('data-icon', ADDED_ICON)
+  const span = addBtn.querySelector('span')!
+  span.textContent = 'Ajouté'
+  addBtn.disabled = true
+}
+
+/** Switches addBtn back to the normal "Ajouter" state */
+function setNormalState(addBtn: HTMLButtonElement) {
+  addBtn.classList.remove('pdf-add-btn--added')
+  const icon = addBtn.querySelector('.pdf-tile-icon')!
+  icon.setAttribute('data-icon', ADD_ICON)
+  const span = addBtn.querySelector('span')!
+  span.textContent = 'Ajouter'
+  addBtn.disabled = false
+}
+
 function startRecording(bar: HTMLElement, gamebook: Element) {
   state = "recording"
   session = { pages: [] }
@@ -71,19 +99,41 @@ function startRecording(bar: HTMLElement, gamebook: Element) {
   bar.appendChild(addBtn)
   bar.appendChild(genBtn)
 
+  // Poll the current comment to keep the button state in sync with navigation
+  let pollInterval: ReturnType<typeof setInterval> | null = setInterval(() => {
+    if (state !== "recording") {
+      if (pollInterval) { clearInterval(pollInterval); pollInterval = null }
+      return
+    }
+    // Don't override the "loading" disabled state (while a capture is in progress)
+    if (addBtn.disabled && !addBtn.classList.contains('pdf-add-btn--added')) return
+
+    const currentComment = extractComment()
+    if (isCommentAlreadyAdded(currentComment)) {
+      setAddedState(addBtn)
+    } else {
+      setNormalState(addBtn)
+    }
+  }, 300)
+
   addBtn.onclick = async (e) => {
     e.stopPropagation()
     if (addBtn.disabled) return
+
+    // Temporarily disable while capturing (normal disabled, not "added")
+    addBtn.classList.remove('pdf-add-btn--added')
     addBtn.disabled = true
+
     try {
       const data = await extractPage()
       session.pages.push(data)
       counter.textContent = String(session.pages.length)
+      // After capture, mark as added immediately
+      setAddedState(addBtn)
     } catch (err) {
       console.error("Erreur capture:", err)
       alert("Erreur lors de la capture de la position.")
-    } finally {
-      addBtn.disabled = false
+      setNormalState(addBtn)
     }
   }
 
@@ -104,6 +154,7 @@ function startRecording(bar: HTMLElement, gamebook: Element) {
     setTimeout(() => {
       state = "idle"
       session = { pages: [] }
+      if (pollInterval) { clearInterval(pollInterval); pollInterval = null }
       bar.innerHTML = ''
       const btn = makeTile(EXPORT_ICON, 'Export PDF')
       btn.classList.add('pdf-export-btn')
