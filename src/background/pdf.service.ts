@@ -57,13 +57,14 @@ const getImageFormat = (dataUri: string): "JPEG" | "PNG" =>
   TEXT SANITIZATION
 ──────────────────────────────────────────────────────────── */
 function sanitize(text: string): string {
+  console.log("🔍 Sanitizing text:", text)
   return (text ?? "")
-    .replace(/[\u0000-\u001F\u007F]/g, " ")
+    .replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, " ")
     .replace(/\u2018|\u2019/g, "'")
     .replace(/\u201C|\u201D/g, '"')
     .replace(/\u2212/g, "-")
     .replace(/\u00B1/g, "+/-")
-    .replace(/[^\x20-\x7E\u00C0-\u00FF\u0100-\u017F]/g, "")
+    .replace(/[^\x20-\x7E\u00C0-\u00FF\u0100-\u017F\n\r]/g, "")
     .replace(/  +/g, " ")
     .trim()
 }
@@ -72,13 +73,18 @@ function sanitize(text: string): string {
   TEXT LAYOUT
 ──────────────────────────────────────────────────────────── */
 function wrapText(doc: jsPDF, text: string): string[] {
-  const safe = sanitize(text)
-  if (!safe) return []
+  const safeText = sanitize(text)
+  console.log("✅ Sanitized text:", safeText)
+  if (!safeText) return []
 
   doc.setFont("helvetica", "normal")
   doc.setFontSize(TEXT.fontSize)
 
-  return doc.splitTextToSize(safe, getTextWidth()) as string[]
+  const paragraphs = safeText.split("\n")
+
+  return paragraphs.flatMap(p =>
+    doc.splitTextToSize(p, getTextWidth())
+  )
 }
 
 function computeBlockHeight(doc: jsPDF, comment: string): number {

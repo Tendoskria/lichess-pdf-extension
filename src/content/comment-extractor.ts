@@ -1,63 +1,46 @@
 export function extractComment(): string {
-  // Chercher le commentaire par différents sélecteurs
-  const selectors = [
-    '.comment'
-  ]
-  
+  const selectors = ['.comment']
   let commentElement: Element | null = null
-  
+
   for (const selector of selectors) {
     commentElement = document.querySelector(selector)
     if (commentElement) break
   }
-  
+
   if (!commentElement) {
     console.warn("Aucun élément de commentaire trouvé")
     return ""
   }
-  
-  // Fonction pour extraire le texte proprement
+
   const extractText = (element: Element): string => {
-    // Cloner l'élément pour ne pas modifier le DOM original
     const clone = element.cloneNode(true) as Element
-    
-    // Supprimer les éléments qui ne sont pas du texte (icônes, boutons, etc.)
+
+    // Supprimer les éléments indésirables (boutons, icônes, etc.)
     const unwantedSelectors = [
-      'button', 'i', '.icon', '[data-icon]', 
+      'button', 'i', '.icon', '[data-icon]',
       '.copy', '.edit', '.delete', '.actions'
     ]
-    
     unwantedSelectors.forEach(selector => {
-      const elements = clone.querySelectorAll(selector)
-      elements.forEach(el => el.remove())
+      clone.querySelectorAll(selector).forEach(el => el.remove())
     })
-    
-    // Récupérer le texte
-    let text = clone.textContent?.trim() || ""
-    
-    // Nettoyer le texte
-    text = text
-      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Supprimer les caractères de contrôle
-      .replace(/\s+/g, ' ') // Normaliser les espaces
-      .trim()
-    
+
+    // Récupérer le HTML interne, convertir <br> en \n, puis supprimer les autres balises
+    let html = clone.innerHTML
+    let text = html.replace(/<br\s*\/?>/gi, '\n')   // <br> -> saut de ligne
+    text = text.replace(/<[^>]+>/g, '')            // supprimer toutes les autres balises
+    text = text.replace(/&nbsp;/g, ' ')            // remplacer &nbsp; par espace
+    text = text.replace(/&[a-z]+;/gi, ' ')         // autres entités HTML simples
+
+    // Nettoyer les espaces tout en préservant les \n
+    text = text.replace(/[ \t]+/g, ' ')            // espaces/tabs multiples -> un espace
+    text = text.replace(/[ \t]+\n/g, '\n')         // espaces avant \n -> \n seul
+    text = text.replace(/\n[ \t]+/g, '\n')         // espaces après \n -> \n seul
+    text = text.replace(/\n{3,}/g, '\n\n')         // max deux sauts de ligne consécutifs
+    text = text.trim()
+
     return text
   }
-  
+
   let comment = extractText(commentElement)
-  
-  // Si le commentaire est vide, essayer de récupérer le HTML et de le nettoyer
-  if (!comment) {
-    const html = commentElement.innerHTML
-    comment = html
-      .replace(/<[^>]*>/g, ' ') // Supprimer les tags HTML
-      .replace(/&[^;]+;/g, ' ') // Supprimer les entités HTML
-      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-  }
-  
-  console.log("📝 Commentaire extrait avec extractComment():", comment)
-  
   return comment
 }
