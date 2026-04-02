@@ -19,7 +19,5 @@ export async function extractPage() {
 
   let comment = extractComment()
 
-  console.log("📝 Commentaire final:", comment.substring(0, 100) + "...")
-
   return { img, comment }
 }

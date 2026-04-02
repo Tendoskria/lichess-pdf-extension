@@ -98,7 +98,7 @@ function startRecording(bar: HTMLElement, gamebook: Element) {
       if (chrome.runtime.lastError) {
         alert("Erreur : " + chrome.runtime.lastError.message)
       } else if (response?.success) {
-        alert(`PDF généré — ${sessionCopy.pages.length} page(s).`)
+        console.log("PDF exporté avec succès.")
       }
     })
     setTimeout(() => {

@@ -57,7 +57,6 @@ const getImageFormat = (dataUri: string): "JPEG" | "PNG" =>
   TEXT SANITIZATION
 ──────────────────────────────────────────────────────────── */
 function sanitize(text: string): string {
-  console.log("🔍 Sanitizing text:", text)
   return (text ?? "")
     .replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, " ")
     .replace(/\u2018|\u2019/g, "'")
@@ -74,7 +73,6 @@ function sanitize(text: string): string {
 ──────────────────────────────────────────────────────────── */
 function wrapText(doc: jsPDF, text: string): string[] {
   const safeText = sanitize(text)
-  console.log("✅ Sanitized text:", safeText)
   if (!safeText) return []
 
   doc.setFont("helvetica", "normal")

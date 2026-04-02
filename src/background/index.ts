@@ -19,5 +19,3 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true
   }
 })
-
-console.log("Background service worker démarré et à l'écoute des messages...")
