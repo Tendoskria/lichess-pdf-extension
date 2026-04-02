@@ -1,34 +1,62 @@
 import { jsPDF } from "jspdf"
 import type { Session } from "../shared/types"
 
-// ─── A4 page dimensions (mm) ──────────────────────────────────────────────────
-const PAGE_W = 210
-const PAGE_H = 297
-const MARGIN_OUTER = 14
-const MARGIN_TOP = 14
-const MARGIN_BOTTOM = 10
-const COL_GAP = 8
-const HEADER_H = 8
-
-const COL_W = (PAGE_W - MARGIN_OUTER * 2 - COL_GAP) / 2
-const CONTENT_TOP = MARGIN_TOP + HEADER_H
-const CONTENT_BOT = PAGE_H - MARGIN_BOTTOM - 4
-
-const BOARD_W = Math.round(COL_W * 0.5)
-const BOARD_H = BOARD_W
-
-const FONT_SIZE = 8.5
-const LINE_H = 4.0
-const TEXT_PADDING = 1
-const TEXT_W = COL_W - TEXT_PADDING * 2
-const AFTER_BOARD = 4
-const AFTER_BLOCK = 6
-
-function colX(col: 0 | 1): number {
-  return col === 0 ? MARGIN_OUTER : MARGIN_OUTER + COL_W + COL_GAP
+/* ────────────────────────────────────────────────────────────
+  PAGE & LAYOUT CONFIG
+──────────────────────────────────────────────────────────── */
+const PAGE = {
+  width: 210,
+  height: 297,
+  margin: {
+    outer: 14,
+    top: 14,
+    bottom: 10,
+  },
+  headerHeight: 8,
+  columnGap: 8,
 }
 
-function sanitise(text: string): string {
+const COLUMN = {
+  width: (PAGE.width - PAGE.margin.outer * 2 - PAGE.columnGap) / 2,
+}
+
+const BOARD = {
+  size: Math.round(COLUMN.width * 0.5),
+}
+
+const TEXT = {
+  fontSize: 8.5,
+  lineHeight: 4,
+  padding: 1,
+}
+
+const SPACING = {
+  afterBoard: 4,
+  afterBlock: 6,
+}
+
+const CONTENT = {
+  top: PAGE.margin.top + PAGE.headerHeight,
+  bottom: PAGE.height - PAGE.margin.bottom - 4,
+}
+
+/* ────────────────────────────────────────────────────────────
+  HELPERS
+──────────────────────────────────────────────────────────── */
+const getColumnX = (col: 0 | 1) =>
+  col === 0
+    ? PAGE.margin.outer
+    : PAGE.margin.outer + COLUMN.width + PAGE.columnGap
+
+const getTextWidth = () => COLUMN.width - TEXT.padding * 2
+
+const getImageFormat = (dataUri: string): "JPEG" | "PNG" =>
+  dataUri.startsWith("data:image/jpeg") ? "JPEG" : "PNG"
+
+/* ────────────────────────────────────────────────────────────
+  TEXT SANITIZATION
+──────────────────────────────────────────────────────────── */
+function sanitize(text: string): string {
   return (text ?? "")
     .replace(/[\u0000-\u001F\u007F]/g, " ")
     .replace(/\u2018|\u2019/g, "'")
@@ -40,148 +68,203 @@ function sanitise(text: string): string {
     .trim()
 }
 
-function wrapComment(doc: jsPDF, comment: string): string[] {
-  const safe = sanitise(comment)
+/* ────────────────────────────────────────────────────────────
+  TEXT LAYOUT
+──────────────────────────────────────────────────────────── */
+function wrapText(doc: jsPDF, text: string): string[] {
+  const safe = sanitize(text)
   if (!safe) return []
-  doc.setFontSize(FONT_SIZE)
+
   doc.setFont("helvetica", "normal")
-  return doc.splitTextToSize(safe, TEXT_W) as string[]
+  doc.setFontSize(TEXT.fontSize)
+
+  return doc.splitTextToSize(safe, getTextWidth()) as string[]
 }
 
-function blockHeight(doc: jsPDF, comment: string): number {
-  const lines = wrapComment(doc, comment)
-  const textH = lines.length > 0 ? AFTER_BOARD + lines.length * LINE_H : 0
-  return BOARD_H + textH + AFTER_BLOCK
+function computeBlockHeight(doc: jsPDF, comment: string): number {
+  const lines = wrapText(doc, comment)
+  const textHeight = lines.length
+    ? SPACING.afterBoard + lines.length * TEXT.lineHeight
+    : 0
+
+  return BOARD.size + textHeight + SPACING.afterBlock
 }
 
-// Detect whether a data-URI is JPEG or PNG
-function imgFormat(dataUri: string): "JPEG" | "PNG" {
-  return dataUri.startsWith("data:image/jpeg") ? "JPEG" : "PNG"
+/* ────────────────────────────────────────────────────────────
+  DRAWING UTILITIES
+──────────────────────────────────────────────────────────── */
+function drawPlaceholder(doc: jsPDF, x: number, y: number) {
+  doc.setDrawColor(200, 200, 200)
+  doc.setFillColor(240, 240, 240)
+  doc.rect(x, y, BOARD.size, BOARD.size, "FD")
 }
 
-function drawBlock(
+function drawImage(doc: jsPDF, img: string | undefined, x: number, y: number) {
+  if (!img) return drawPlaceholder(doc, x, y)
+
+  try {
+    doc.addImage(img, getImageFormat(img), x, y, BOARD.size, BOARD.size)
+  } catch {
+    drawPlaceholder(doc, x, y)
+    doc.setFontSize(7)
+    doc.setTextColor(150, 150, 150)
+    doc.text("(image manquante)", x + BOARD.size / 2, y + BOARD.size / 2, {
+      align: "center",
+    })
+    doc.setTextColor(0, 0, 0)
+  }
+}
+
+function drawTextBlock(
   doc: jsPDF,
+  textLines: string[],
   x: number,
-  y: number,
-  imgData: string | undefined,
-  comment: string
+  startY: number
 ): number {
-  const boardX = x + (COL_W - BOARD_W) / 2
+  let y = startY
 
-  if (imgData) {
-    try {
-      doc.addImage(imgData, imgFormat(imgData), boardX, y, BOARD_W, BOARD_H)
-    } catch {
-      doc.setDrawColor(200, 200, 200)
-      doc.setFillColor(240, 240, 240)
-      doc.rect(boardX, y, BOARD_W, BOARD_H, "FD")
-      doc.setFontSize(7)
-      doc.setTextColor(150, 150, 150)
-      doc.text("(image manquante)", boardX + BOARD_W / 2, y + BOARD_H / 2, { align: "center" })
-      doc.setTextColor(0, 0, 0)
-    }
-  } else {
-    doc.setDrawColor(200, 200, 200)
-    doc.setFillColor(240, 240, 240)
-    doc.rect(boardX, y, BOARD_W, BOARD_H, "FD")
+  if (!textLines.length) return y
+
+  y += SPACING.afterBoard
+
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(TEXT.fontSize)
+  doc.setTextColor(15, 15, 15)
+
+  for (const line of textLines) {
+    doc.text(line, x + TEXT.padding, y)
+    y += TEXT.lineHeight
   }
 
-  let curY = y + BOARD_H
+  return y
+}
 
-  const lines = wrapComment(doc, comment)
-  if (lines.length > 0) {
-    curY += AFTER_BOARD
-    doc.setFontSize(FONT_SIZE)
-    doc.setFont("helvetica", "normal")
-    doc.setTextColor(15, 15, 15)
-    for (const line of lines) {
-      doc.text(line, x + TEXT_PADDING, curY)
-      curY += LINE_H
-    }
-  }
-
-  curY += 2
+function drawSeparator(doc: jsPDF, x: number, y: number) {
   doc.setDrawColor(200, 200, 200)
   doc.setLineWidth(0.2)
-  doc.line(x, curY, x + COL_W, curY)
-  curY += (AFTER_BLOCK - 2)
-
-  return curY
+  doc.line(x, y, x + COLUMN.width, y)
 }
 
-function drawPageHeader(doc: jsPDF, title: string): void {
-  doc.setFontSize(7.5)
+/* ────────────────────────────────────────────────────────────
+  BLOCK RENDERING
+──────────────────────────────────────────────────────────── */
+function drawBlock(
+  doc: jsPDF,
+  columnX: number,
+  startY: number,
+  img: string | undefined,
+  comment: string
+): number {
+  const boardX = columnX + (COLUMN.width - BOARD.size) / 2
+
+  drawImage(doc, img, boardX, startY)
+
+  let y = startY + BOARD.size
+
+  const lines = wrapText(doc, comment)
+  y = drawTextBlock(doc, lines, columnX, y)
+
+  y += 2
+  drawSeparator(doc, columnX, y)
+
+  return y + (SPACING.afterBlock - 2)
+}
+
+/* ────────────────────────────────────────────────────────────
+  HEADER & FOOTER
+──────────────────────────────────────────────────────────── */
+function drawHeader(doc: jsPDF, title: string) {
   doc.setFont("helvetica", "italic")
+  doc.setFontSize(7.5)
   doc.setTextColor(90, 90, 90)
-  doc.text(title, PAGE_W / 2, MARGIN_TOP, { align: "center" })
+
+  doc.text(title, PAGE.width / 2, PAGE.margin.top, { align: "center" })
+
   doc.setDrawColor(130, 130, 130)
   doc.setLineWidth(0.3)
-  doc.line(MARGIN_OUTER, MARGIN_TOP + 2.5, PAGE_W - MARGIN_OUTER, MARGIN_TOP + 2.5)
+  doc.line(
+    PAGE.margin.outer,
+    PAGE.margin.top + 2.5,
+    PAGE.width - PAGE.margin.outer,
+    PAGE.margin.top + 2.5
+  )
+
   doc.setTextColor(0, 0, 0)
 }
 
-function drawPageNumber(doc: jsPDF, current: number, total: number): void {
+function drawPageNumber(doc: jsPDF, current: number, total: number) {
   doc.setFontSize(7)
-  doc.setFont("helvetica", "normal")
   doc.setTextColor(130, 130, 130)
-  doc.text(`${current} / ${total}`, PAGE_W - MARGIN_OUTER, PAGE_H - MARGIN_BOTTOM / 2, { align: "right" })
+
+  doc.text(
+    `${current} / ${total}`,
+    PAGE.width - PAGE.margin.outer,
+    PAGE.height - PAGE.margin.bottom / 2,
+    { align: "right" }
+  )
+
   doc.setTextColor(0, 0, 0)
 }
 
+/* ────────────────────────────────────────────────────────────
+  MAIN GENERATOR
+──────────────────────────────────────────────────────────── */
 export async function generatePDF(session: Session) {
-  console.log("=== DÉBUT GÉNÉRATION PDF (2-colonnes) ===")
-  console.log("Nombre de blocs:", session.pages?.length)
-
-  if (!session.pages || session.pages.length === 0) {
-    console.warn("⚠️ Aucune page à exporter")
+  if (!session.pages?.length) {
+    console.warn("⚠️ No content to export")
     return
   }
 
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
-  const title = sanitise("Lichess Study")
-  const blocks = session.pages
+  const doc = new jsPDF({ unit: "mm", format: "a4" })
+  const title = sanitize("Lichess Study")
 
-  let currentPdfPage = 1
-  let currentCol: 0 | 1 = 0
-  let colY: [number, number] = [CONTENT_TOP, CONTENT_TOP]
+  let pageNumber = 1
+  let columnIndex: 0 | 1 = 0
+  let cursorY: [number, number] = [CONTENT.top, CONTENT.top]
 
-  drawPageHeader(doc, title)
+  drawHeader(doc, title)
 
-  for (let i = 0; i < blocks.length; i++) {
-    const page = blocks[i]
-    const comment = page.comment ?? ""
-    const bh = blockHeight(doc, comment)
+  for (const block of session.pages) {
+    const comment = block.comment ?? ""
+    const height = computeBlockHeight(doc, comment)
 
-    if (colY[currentCol] + bh > CONTENT_BOT) {
-      if (currentCol === 0) {
-        currentCol = 1
+    // Handle overflow
+    if (cursorY[columnIndex] + height > CONTENT.bottom) {
+      if (columnIndex === 0) {
+        columnIndex = 1
       } else {
         doc.addPage()
-        currentPdfPage++
-        drawPageHeader(doc, title)
-        colY = [CONTENT_TOP, CONTENT_TOP]
-        currentCol = 0
+        pageNumber++
+        drawHeader(doc, title)
+
+        cursorY = [CONTENT.top, CONTENT.top]
+        columnIndex = 0
       }
     }
 
-    const newY = drawBlock(doc, colX(currentCol), colY[currentCol], page.img, comment)
-    colY[currentCol] = newY
+    const newY = drawBlock(
+      doc,
+      getColumnX(columnIndex),
+      cursorY[columnIndex],
+      block.img,
+      comment
+    )
+
+    cursorY[columnIndex] = newY
   }
 
-  const totalPdfPages = currentPdfPage
-  for (let p = 1; p <= totalPdfPages; p++) {
-    doc.setPage(p)
-    drawPageNumber(doc, p, totalPdfPages)
+  // Page numbers
+  for (let i = 1; i <= pageNumber; i++) {
+    doc.setPage(i)
+    drawPageNumber(doc, i, pageNumber)
   }
 
-  const pdfData = doc.output("datauristring")
-  const ts = new Date().toISOString().slice(0, 19).replace(/:/g, "-")
-  const filename = `lichess-study-${ts}.pdf`
+  const pdf = doc.output("datauristring")
+  const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-")
 
-  try {
-    await chrome.downloads.download({ url: pdfData, filename, conflictAction: "uniquify" })
-    console.log(`✅ PDF téléchargé: ${filename}`)
-  } catch (error) {
-    console.error("❌ Erreur téléchargement:", error)
-  }
+  await chrome.downloads.download({
+    url: pdf,
+    filename: `lichess-study-${timestamp}.pdf`,
+    conflictAction: "uniquify",
+  })
 }
