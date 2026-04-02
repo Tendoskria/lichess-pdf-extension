@@ -10,7 +10,7 @@ const MARGIN_BOTTOM = 10
 const COL_GAP = 8
 const HEADER_H = 8
 
-const COL_W = (PAGE_W - MARGIN_OUTER * 2 - COL_GAP) / 2  // ≈ 83 mm
+const COL_W = (PAGE_W - MARGIN_OUTER * 2 - COL_GAP) / 2
 const CONTENT_TOP = MARGIN_TOP + HEADER_H
 const CONTENT_BOT = PAGE_H - MARGIN_BOTTOM - 4
 
@@ -18,11 +18,11 @@ const BOARD_W = Math.round(COL_W * 0.5)
 const BOARD_H = BOARD_W
 
 const FONT_SIZE = 8.5
-const LINE_H = 4.0   // mm per line
-const TEXT_PADDING = 1          // mm, ensures text stays inside column
-const TEXT_W = COL_W - TEXT_PADDING * 2  // wrap width accounts for left+right padding
-const AFTER_BOARD = 4     // gap board → text (increased padding)
-const AFTER_BLOCK = 6     // gap text → next block
+const LINE_H = 4.0
+const TEXT_PADDING = 1
+const TEXT_W = COL_W - TEXT_PADDING * 2
+const AFTER_BOARD = 4
+const AFTER_BLOCK = 6
 
 function colX(col: 0 | 1): number {
   return col === 0 ? MARGIN_OUTER : MARGIN_OUTER + COL_W + COL_GAP
@@ -43,18 +43,20 @@ function sanitise(text: string): string {
 function wrapComment(doc: jsPDF, comment: string): string[] {
   const safe = sanitise(comment)
   if (!safe) return []
-  // Font must be set before splitTextToSize so jsPDF measures with correct metrics
   doc.setFontSize(FONT_SIZE)
   doc.setFont("helvetica", "normal")
   return doc.splitTextToSize(safe, TEXT_W) as string[]
 }
 
-// blockHeight and drawBlock use IDENTICAL arithmetic — no drift possible
 function blockHeight(doc: jsPDF, comment: string): number {
   const lines = wrapComment(doc, comment)
   const textH = lines.length > 0 ? AFTER_BOARD + lines.length * LINE_H : 0
-  // board + text + separator(2) + trailing gap(AFTER_BLOCK-2) = board + text + AFTER_BLOCK
   return BOARD_H + textH + AFTER_BLOCK
+}
+
+// Detect whether a data-URI is JPEG or PNG
+function imgFormat(dataUri: string): "JPEG" | "PNG" {
+  return dataUri.startsWith("data:image/jpeg") ? "JPEG" : "PNG"
 }
 
 function drawBlock(
@@ -64,13 +66,11 @@ function drawBlock(
   imgData: string | undefined,
   comment: string
 ): number {
-  // Center the board horizontally within the column
   const boardX = x + (COL_W - BOARD_W) / 2
 
-  // Board
   if (imgData) {
     try {
-      doc.addImage(imgData, "PNG", boardX, y, BOARD_W, BOARD_H)
+      doc.addImage(imgData, imgFormat(imgData), boardX, y, BOARD_W, BOARD_H)
     } catch {
       doc.setDrawColor(200, 200, 200)
       doc.setFillColor(240, 240, 240)
@@ -88,7 +88,6 @@ function drawBlock(
 
   let curY = y + BOARD_H
 
-  // Comment
   const lines = wrapComment(doc, comment)
   if (lines.length > 0) {
     curY += AFTER_BOARD
@@ -99,10 +98,8 @@ function drawBlock(
       doc.text(line, x + TEXT_PADDING, curY)
       curY += LINE_H
     }
-
   }
 
-  // Separator rule
   curY += 2
   doc.setDrawColor(200, 200, 200)
   doc.setLineWidth(0.2)
