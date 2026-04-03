@@ -6,4 +6,5 @@ export interface PageData {
 
 export interface Session {
   pages: PageData[]
+  title: string
 }

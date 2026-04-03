@@ -211,6 +211,55 @@ function drawPageNumber(doc: jsPDF, current: number, total: number) {
 }
 
 /* ────────────────────────────────────────────────────────────
+  COVER PAGE
+──────────────────────────────────────────────────────────── */
+function drawCoverPage(doc: jsPDF, title: string) {
+  const centerX = PAGE.width / 2
+  const centerY = PAGE.height / 2
+
+  // Dark background
+  doc.setFillColor(255, 255, 255)
+  doc.rect(0, 0, PAGE.width, PAGE.height, "F")
+
+  // Wrap title lines
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(22)
+  const titleLines: string[] = doc.splitTextToSize(title, PAGE.width - PAGE.margin.outer * 4)
+  const lineSpacing = 10
+  const totalTextHeight = (titleLines.length - 1) * lineSpacing
+  const titleTop = centerY - totalTextHeight / 2
+
+  // Decorative top line
+  doc.setDrawColor(180, 150, 80)
+  doc.setLineWidth(0.5)
+  doc.line(PAGE.margin.outer, titleTop - 12, PAGE.width - PAGE.margin.outer, titleTop - 12)
+
+  // Title text
+  doc.setTextColor(20, 20, 20)
+  titleLines.forEach((line: string, i: number) => {
+    doc.text(line, centerX, titleTop + i * lineSpacing, { align: "center" })
+  })
+
+  // Decorative bottom line
+  const titleBottom = titleTop + totalTextHeight
+  doc.line(PAGE.margin.outer, titleBottom + 10, PAGE.width - PAGE.margin.outer, titleBottom + 10)
+
+  // Date subtitle
+  const date = new Date().toLocaleDateString("fr-FR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })
+  doc.setFont("helvetica", "italic")
+  doc.setFontSize(8)
+  doc.setTextColor(130, 120, 100)
+  doc.text(date, centerX, titleBottom + 18, { align: "center" })
+
+  // Reset
+  doc.setTextColor(0, 0, 0)
+}
+
+/* ────────────────────────────────────────────────────────────
   MAIN GENERATOR
 ──────────────────────────────────────────────────────────── */
 export async function generatePDF(session: Session) {
@@ -220,7 +269,11 @@ export async function generatePDF(session: Session) {
   }
 
   const doc = new jsPDF({ unit: "mm", format: "a4" })
-  const title = sanitize("Lichess Study")
+  const title = sanitize(session.title || "Lichess Study")
+
+  // Cover page (page 1 — not numbered)
+  drawCoverPage(doc, title)
+  doc.addPage()
 
   let pageNumber = 1
   let columnIndex: 0 | 1 = 0
@@ -257,9 +310,9 @@ export async function generatePDF(session: Session) {
     cursorY[columnIndex] = newY
   }
 
-  // Page numbers
+  // Page numbers (skip cover page which is doc page 1)
   for (let i = 1; i <= pageNumber; i++) {
-    doc.setPage(i)
+    doc.setPage(i + 1) // offset by 1 to skip the cover
     drawPageNumber(doc, i, pageNumber)
   }
 

@@ -16,7 +16,7 @@ export function extractBoardFingerprint(): string {
     // the actual board state and persist across navigation steps.
     .filter(el => !el.classList.contains('ghost'))
     .map(el => {
-      const cls       = el.className                          // e.g. "white queen"
+      const cls = el.className                          // e.g. "white queen"
       const transform = (el as HTMLElement).style.transform   // e.g. "translate(336px, 168px)"
       return `${cls}@${transform}`
     })
@@ -39,8 +39,8 @@ export async function extractPage() {
     useCORS: true
   })
 
-  const img              = canvas.toDataURL("image/jpeg", 0.82)
-  const comment          = extractComment()
+  const img = canvas.toDataURL("image/jpeg", 0.82)
+  const comment = extractComment()
   const boardFingerprint = extractBoardFingerprint()
 
   return { img, comment, boardFingerprint }

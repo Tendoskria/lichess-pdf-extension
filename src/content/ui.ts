@@ -5,7 +5,7 @@ import { extractBoardFingerprint } from "./extractor"
 type State = "idle" | "recording"
 
 let state: State = "idle"
-let session = { pages: [] as any[] }
+let session = { pages: [] as any[], title: "" }
 
 export function initUI() {
   const waitForElement = () => {
@@ -103,22 +103,24 @@ function setNormalState(addBtn: HTMLButtonElement) {
 
 function startRecording(bar: HTMLElement, gamebook: Element) {
   state = "recording"
-  session = { pages: [] }
+  session = { pages: [], title: "" }
   bar.innerHTML = ''
-
+  
   const counter = document.createElement('span')
   counter.className = 'pdf-controls__count'
   counter.textContent = '0'
-
+  
   const addBtn = makeTile(ADD_ICON, 'Ajouter')
   addBtn.classList.add('pdf-add-btn')
-
+  
   const genBtn = makeTile(EXPORT_ICON, 'Générer')
   genBtn.classList.add('pdf-gen-btn')
-
+  
   bar.appendChild(counter)
   bar.appendChild(addBtn)
   bar.appendChild(genBtn)
+
+  session.title = document.querySelector('title')?.textContent || "Lichess Analysis"
 
   // Poll the current position (comment + board) to keep the button state in
   // sync with the user navigating through moves.
@@ -167,7 +169,7 @@ function startRecording(bar: HTMLElement, gamebook: Element) {
       alert("Aucune page enregistrée. Utilisez « Ajouter » pour capturer des positions.")
       return
     }
-    const sessionCopy = { pages: [...session.pages] }
+    const sessionCopy = { pages: [...session.pages], title: session.title }
     chrome.runtime.sendMessage({ action: "EXPORT_PDF", payload: sessionCopy }, (response) => {
       if (chrome.runtime.lastError) {
         alert("Erreur : " + chrome.runtime.lastError.message)
@@ -177,7 +179,7 @@ function startRecording(bar: HTMLElement, gamebook: Element) {
     })
     setTimeout(() => {
       state = "idle"
-      session = { pages: [] }
+      session = { pages: [], title: "" }
       if (pollInterval) { clearInterval(pollInterval); pollInterval = null }
       bar.innerHTML = ''
       const btn = makeTile(EXPORT_ICON, 'Export PDF')
