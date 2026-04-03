@@ -7,6 +7,43 @@ type State = "idle" | "recording"
 let state: State = "idle"
 let session = { pages: [] as any[], title: "" }
 
+/**
+ * Returns true when the extension context is still alive.
+ * After an extension reload/update, chrome.runtime.id becomes undefined and
+ * any call to chrome.runtime.sendMessage throws "Extension context invalidated".
+ */
+function isExtensionContextValid(): boolean {
+  try {
+    return !!chrome.runtime?.id
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Safe wrapper around chrome.runtime.sendMessage.
+ * Shows a user-friendly message instead of throwing when the context is gone.
+ */
+function safeSendMessage(
+  message: unknown,
+  callback: (response: any) => void
+): void {
+  if (!isExtensionContextValid()) {
+    alert(
+      "L'extension a été rechargée. Veuillez rafraîchir la page (F5) pour continuer."
+    )
+    return
+  }
+  try {
+    chrome.runtime.sendMessage(message, callback)
+  } catch (err) {
+    console.error("chrome.runtime.sendMessage failed:", err)
+    alert(
+      "L'extension a été rechargée. Veuillez rafraîchir la page (F5) pour continuer."
+    )
+  }
+}
+
 export function initUI() {
   const waitForElement = () => {
     const analyseUnderboard = document.querySelector('.analyse__underboard')
@@ -125,6 +162,12 @@ function startRecording(bar: HTMLElement, gamebook: Element) {
   // Poll the current position (comment + board) to keep the button state in
   // sync with the user navigating through moves.
   let pollInterval: ReturnType<typeof setInterval> | null = setInterval(() => {
+    // Stop polling silently if the extension context has been invalidated
+    if (!isExtensionContextValid()) {
+      if (pollInterval) { clearInterval(pollInterval); pollInterval = null }
+      return
+    }
+
     if (state !== "recording") {
       if (pollInterval) { clearInterval(pollInterval); pollInterval = null }
       return
@@ -170,13 +213,15 @@ function startRecording(bar: HTMLElement, gamebook: Element) {
       return
     }
     const sessionCopy = { pages: [...session.pages], title: session.title }
-    chrome.runtime.sendMessage({ action: "EXPORT_PDF", payload: sessionCopy }, (response) => {
+
+    safeSendMessage({ action: "EXPORT_PDF", payload: sessionCopy }, (response) => {
       if (chrome.runtime.lastError) {
-        alert("Erreur : " + chrome.runtime.lastError.message)
+        console.warn("Erreur lors de l'export du PDF:", chrome.runtime.lastError.message)
       } else if (response?.success) {
         console.log("PDF exporté avec succès.")
       }
     })
+
     setTimeout(() => {
       state = "idle"
       session = { pages: [], title: "" }

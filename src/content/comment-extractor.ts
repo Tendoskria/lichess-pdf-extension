@@ -8,7 +8,6 @@ export function extractComment(): string {
   }
 
   if (!commentElement) {
-    console.warn("Aucun élément de commentaire trouvé")
     return ""
   }
 
